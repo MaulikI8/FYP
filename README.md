@@ -11,11 +11,13 @@ Pathloom is a locally runnable full-stack FYP prototype for a learning intellige
 - SQLite by default, with a documented PostgreSQL switch point in `backend/config/settings.py`.
 - Seeded Horizon Valley Secondary School with Grade 9/10 Mathematics and Science content, prerequisite links, questions, attempts, learning events, recovery plans and interventions.
 - Student journey: dashboard → factorisation evidence → prerequisite map → guided recovery lab → fresh server-graded assessment → updated evidence.
+- Research investigation slice: Concept Surgery performs persisted SymPy-backed factorisation experiments; Diagnostic Duel performs persisted Bayesian belief updates with information-gain question selection.
 - Teacher journey: class patterns → concept opportunities → recipient-validated intervention → student recovery plan.
 - Coordinator aggregate view and a linked guardian view.
 - Responsive React + TypeScript shell with React Router, TanStack Query, Lucide icons, Recharts and an `@xyflow/react` prerequisite map.
 - Modular frontend features under `frontend/src/features/`, shared shell/layouts under `frontend/src/layouts/`, and design tokens under `frontend/src/styles/`.
 - Honest simulation boundary: scoring, mastery, gap analysis and recovery generation are deterministic Python services, not a live ML or paid AI service.
+- Research boundary: Diagnostic Duel likelihoods are authored prototype assumptions and require labelled evaluation; Concept Surgery validates supported symbolic transformations but does not infer comprehension from manipulation alone.
 
 ## Run locally
 

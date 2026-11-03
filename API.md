@@ -76,7 +76,14 @@ Student recovery creation always targets the authenticated student; a supplied d
 | Learner preferences | `GET/PATCH /preferences/` |
 | Notifications | `GET /notifications/`, `PATCH /notifications/{uuid}/` |
 | Authorized search | `GET /search/?q=...` |
+| Investigation session | `POST/GET /investigations/`, `GET /investigations/{uuid}/` |
+| Concept Surgery | `POST /investigations/{uuid}/surgery/` |
+| Diagnostic Duel | `POST /investigations/{uuid}/diagnostic-answer/` |
 
 Unauthorized access is rejected by DRF authentication/permissions; ownership and assigned-class validation happen inside the views.
 
 `GET /knowledge-map/` returns the exact prerequisite edges used by the React Flow map. `GET /teacher/classes/{uuid}/insights/` reports assessed learner count, response count, correct count and incorrect count separately; unassessed learners are excluded from concept averages.
+
+## Research investigation endpoints
+
+`POST /investigations/` accepts `{"type":"CONCEPT_SURGERY|DIAGNOSTIC_DUEL","concept_id":"MATH-ALG-07"}` and creates an owner-scoped, persisted investigation. Concept Surgery submits bounded integer factors to SymPy-backed symbolic validation and stores the expanded expression, coefficient relationship and roots. Diagnostic Duel submits an authored answer option; Django updates the explicit belief distribution, records prior/posterior values, calculates the next question's expected information gain, and preserves an `INCONCLUSIVE` outcome when the question budget ends without separation. These probabilities are prototype algorithm state, not calibrated confidence.

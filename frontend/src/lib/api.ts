@@ -28,6 +28,11 @@ export type Preferences = { goal_minutes_per_week: number; focus_subjects: strin
 export type Notification = { id: string; title: string; body: string; destination: string; read: boolean; created_at: string };
 export type SearchResults = { courses: Array<{ id: string; title: string }>; concepts: Array<{ id: string; title: string }>; learners: Array<{ id: number; name: string }> };
 export type NoteRecord = { id: string; lesson_id: string; body: string; timestamp_seconds: number; created_at: string };
+export type SurgeryExperiment = { factors: [number, number]; expression: string; latex: string; expanded: string; sum: number; product: number; target_sum: number; target_product: number; matches_target: boolean; roots: string[]; explanation: string };
+export type DiagnosticOption = { id: string; label: string };
+export type DiagnosticQuestion = { id: string | null; prompt: string | null; options: DiagnosticOption[]; information_gain: number; status: string };
+export type DiagnosticState = { beliefs: Record<string, number>; asked_ids: string[]; max_questions: number; current_question: DiagnosticQuestion; initial_entropy: number; last_information_gain: number; trace: Array<{ question_id: string; answer_id: string; before: Record<string, number>; after: Record<string, number>; information_gain: number }>; top_hypothesis?: string | null; top_probability?: number };
+export type Investigation = { id: string; concept_id: string; concept: string; type: "CONCEPT_SURGERY" | "DIAGNOSTIC_DUEL"; status: string; state: { baseline?: SurgeryExperiment; current?: SurgeryExperiment; history?: Array<{ event_key: string; experiment: SurgeryExperiment }>; mode?: string } & Partial<DiagnosticState>; event_count: number; created_at: string; updated_at: string };
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
@@ -92,3 +97,8 @@ export const updatePreferences = (update: Partial<Pick<Preferences, "goal_minute
 export const getNotifications = () => api<{ unread_count: number; results: Notification[] }>("/notifications/");
 export const markNotificationRead = (id: string) => api<{ id: string; read: boolean }>(`/notifications/${id}/`, { method: "PATCH", body: JSON.stringify({ read: true }) });
 export const search = (query: string) => api<SearchResults>(`/search/?q=${encodeURIComponent(query)}`);
+export const createInvestigation = (type: Investigation["type"], concept_id: string) => api<Investigation>("/investigations/", { method: "POST", body: JSON.stringify({ type, concept_id }) });
+export const getInvestigation = (id: string) => api<Investigation>(`/investigations/${id}/`);
+export const runSurgeryExperiment = (id: string, factor_a: number, factor_b: number, event_key: string) => api<{ experiment: SurgeryExperiment; session: Investigation }>(`/investigations/${id}/surgery/`, { method: "POST", body: JSON.stringify({ factor_a, factor_b, event_key }) });
+export const answerDiagnosticQuestion = (id: string, question_id: string, answer_id: string, event_key: string) => api<{ session: Investigation; answer_effect: DiagnosticState["trace"][number]; status: string }>(`/investigations/${id}/diagnostic-answer/`, { method: "POST", body: JSON.stringify({ question_id, answer_id, event_key }) });
+export const finishInvestigation = (id: string) => api<Investigation>(`/investigations/${id}/finish/`, { method: "POST", body: "{}" });

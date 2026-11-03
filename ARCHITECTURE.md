@@ -24,6 +24,7 @@ User(learner) → Attempt → Answer → Question
 User(learner) → LearningEvent / ConceptMastery / StudyTask / Note
 User(learner) → RecoveryPlan → RecoveryStep
 User(teacher) → Intervention → InterventionRecipient → User(learner)
+User(learner) → LearningInvestigation → InvestigationEvent
 ```
 
 Important records use UUIDs where the record can be exposed to a browser. Stable concept/question/assessment slugs make the seeded graph readable. Uniqueness constraints prevent duplicate enrollment, question mappings, attempt answers, plan steps and intervention recipients.
@@ -49,6 +50,10 @@ uncertainty = max(0.12, 0.48 / sqrt(evidence_count))
 Labels are Not assessed, Emerging, Developing, Proficient or Strong. `gap_analysis` prioritizes low estimates and then checks the curated prerequisite relation for another low-evidence skill. `generate_recovery_plan` chooses an existing concept resource, then creates lesson, reflection and fresh-practice steps. Completing steps records activity but does not change mastery; only server-graded assessment evidence can do that.
 
 This is an explainable demo engine. A future research version could replace individual services with validated models, but would need labeled data, fairness analysis and empirical evaluation.
+
+## Investigation algorithms
+
+`apps/learning/algorithms.py` is deliberately independent of HTTP views. Concept Surgery uses bounded integer inputs and SymPy expansion/root evaluation. Diagnostic Duel uses four competing authored misconception hypotheses, normalized Bayesian updates, entropy-based expected information gain, deterministic question selection, a four-question budget, and an explicit inconclusive state. The likelihood tables are transparent assumptions for a reproducible FYP prototype; they are not claimed to be learned or calibrated.
 
 ## Frontend structure
 

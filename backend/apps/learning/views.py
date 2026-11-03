@@ -13,7 +13,8 @@ from rest_framework.response import Response
 from apps.accounts.models import User
 from apps.assessments.models import Answer, Assessment, Attempt
 from apps.curriculum.models import Concept, Course, Lesson
-from apps.learning.models import AppPreferences, LearningEvent, Note, StudyTask
+from apps.learning.algorithms import QUESTIONS, factorisation_experiment, initial_beliefs, posterior_update, question_payload, select_question
+from apps.learning.models import AppPreferences, InvestigationEvent, LearningEvent, LearningInvestigation, Note, StudyTask
 from apps.recovery.models import Intervention, InterventionRecipient, RecoveryPlan
 from apps.schools.models import Classroom, GuardianLink
 from .services import assessment_for_concept, compute_mastery, generate_recovery_plan, gap_analysis, refresh_mastery, response_matches
@@ -73,6 +74,154 @@ def auth_logout(request):
 @permission_classes([IsAuthenticated])
 def me(request):
     return Response(user_payload(request.user))
+
+
+def investigation_payload(session):
+    state = dict(session.state or {})
+    if session.investigation_type == LearningInvestigation.Types.DIAGNOSTIC_DUEL:
+        beliefs = state.get("beliefs", {})
+        state["top_hypothesis"] = max(beliefs, key=beliefs.get) if beliefs else None
+        state["top_probability"] = round(max(beliefs.values()), 4) if beliefs else 0
+    return {
+        "id": str(session.id),
+        "concept_id": session.concept_id,
+        "concept": session.concept.title,
+        "type": session.investigation_type,
+        "status": session.status,
+        "state": state,
+        "event_count": session.events.count(),
+        "created_at": session.created_at,
+        "updated_at": session.updated_at,
+    }
+
+
+def owned_investigation(request, session_id):
+    try:
+        return LearningInvestigation.objects.select_related("concept").get(id=session_id, learner=request.user)
+    except LearningInvestigation.DoesNotExist:
+        return None
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def investigation_create(request):
+    if request.user.role != User.Roles.STUDENT:
+        return Response({"detail": "Only learners can start investigations."}, status=403)
+    investigation_type = request.data.get("type")
+    concept_id = request.data.get("concept_id", "MATH-ALG-07")
+    if investigation_type not in LearningInvestigation.Types.values:
+        return Response({"detail": "Choose Concept Surgery or Diagnostic Duel."}, status=400)
+    try:
+        concept = Concept.objects.get(id=concept_id)
+    except Concept.DoesNotExist:
+        return Response({"detail": "Concept not found."}, status=404)
+    if concept.id != "MATH-ALG-07":
+        return Response({"detail": "This authored investigation currently supports factorisation only."}, status=400)
+    if investigation_type == LearningInvestigation.Types.CONCEPT_SURGERY:
+        baseline = factorisation_experiment(2, 3)
+        state = {"baseline": baseline, "current": baseline, "history": [], "mode": "monic_factorisation"}
+    else:
+        beliefs = initial_beliefs()
+        question, information_gain = select_question(beliefs, [])
+        state = {
+            "beliefs": beliefs,
+            "asked_ids": [],
+            "max_questions": 4,
+            "current_question": question_payload(question, beliefs, 0),
+            "initial_entropy": 2.0,
+            "last_information_gain": information_gain,
+            "trace": [],
+        }
+    session = LearningInvestigation.objects.create(learner=request.user, concept=concept, investigation_type=investigation_type, state=state)
+    return Response(investigation_payload(session), status=201)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def investigation_detail(request, session_id):
+    session = owned_investigation(request, session_id)
+    if not session:
+        return Response({"detail": "Investigation not found."}, status=404)
+    return Response(investigation_payload(session))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def investigation_surgery(request, session_id):
+    session = owned_investigation(request, session_id)
+    if not session or session.investigation_type != LearningInvestigation.Types.CONCEPT_SURGERY:
+        return Response({"detail": "Concept Surgery investigation not found."}, status=404)
+    try:
+        factor_a = int(request.data.get("factor_a"))
+        factor_b = int(request.data.get("factor_b"))
+    except (TypeError, ValueError):
+        return Response({"detail": "Both factors must be whole numbers."}, status=400)
+    try:
+        experiment = factorisation_experiment(factor_a, factor_b)
+    except ValueError as error:
+        return Response({"detail": str(error)}, status=400)
+    event_key = str(request.data.get("event_key", f"surgery:{factor_a}:{factor_b}"))[:100]
+    if not InvestigationEvent.objects.filter(session=session, event_key=event_key).exists():
+        state = dict(session.state or {})
+        history = list(state.get("history", []))
+        history.append({"event_key": event_key, "experiment": experiment})
+        state.update({"current": experiment, "history": history[-20:]})
+        session.state = state
+        session.save(update_fields=["state", "updated_at"])
+        InvestigationEvent.objects.create(session=session, event_type="SURGERY_EDIT", event_key=event_key, payload=experiment)
+        learning_event = LearningEvent.objects.create(learner=request.user, event_type=LearningEvent.Types.LAB_INTERACTION, metadata={"investigation_id": str(session.id), "kind": "concept_surgery", "event_key": event_key, "matches_target": experiment["matches_target"]})
+        learning_event.concepts.add(session.concept)
+    else:
+        experiment = session.state.get("current", experiment)
+    return Response({"experiment": experiment, "session": investigation_payload(session)})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def investigation_diagnostic_answer(request, session_id):
+    session = owned_investigation(request, session_id)
+    if not session or session.investigation_type != LearningInvestigation.Types.DIAGNOSTIC_DUEL:
+        return Response({"detail": "Diagnostic Duel investigation not found."}, status=404)
+    state = dict(session.state or {})
+    current = state.get("current_question") or {}
+    question_id = request.data.get("question_id")
+    answer_id = request.data.get("answer_id")
+    event_key = str(request.data.get("event_key", f"answer:{question_id}:{answer_id}"))[:100]
+    existing = InvestigationEvent.objects.filter(session=session, event_key=event_key).first()
+    if existing:
+        return Response(investigation_payload(session))
+    if question_id != current.get("id"):
+        return Response({"detail": "That question is no longer the active diagnostic question."}, status=409)
+    question = next((item for item in QUESTIONS if item.id == question_id), None)
+    if not question or answer_id not in {option["id"] for option in question.options}:
+        return Response({"detail": "Choose one of the available diagnostic answers."}, status=400)
+    before = dict(state.get("beliefs", initial_beliefs()))
+    after = posterior_update(before, question, answer_id)
+    asked_ids = list(state.get("asked_ids", [])) + [question_id]
+    next_question, information_gain = select_question(after, asked_ids)
+    status = question_payload(next_question, after, len(asked_ids))["status"]
+    trace_item = {"question_id": question_id, "answer_id": answer_id, "before": before, "after": after, "information_gain": current.get("information_gain", 0)}
+    state.update({"beliefs": after, "asked_ids": asked_ids, "current_question": question_payload(next_question, after, len(asked_ids)), "last_information_gain": information_gain, "trace": [*state.get("trace", []), trace_item][-10:]})
+    session.state = state
+    if status in {"SUFFICIENT", "INCONCLUSIVE"}:
+        session.status = LearningInvestigation.Status.COMPLETED
+    session.save(update_fields=["state", "status", "updated_at"])
+    InvestigationEvent.objects.create(session=session, event_type="DIAGNOSTIC_RESPONSE", event_key=event_key, payload=trace_item)
+    learning_event = LearningEvent.objects.create(learner=request.user, event_type=LearningEvent.Types.LAB_INTERACTION, metadata={"investigation_id": str(session.id), "kind": "diagnostic_duel", "question_id": question_id, "answer_id": answer_id, "status": status})
+    learning_event.concepts.add(session.concept)
+    return Response({"session": investigation_payload(session), "answer_effect": trace_item, "status": status})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def investigation_finish(request, session_id):
+    session = owned_investigation(request, session_id)
+    if not session:
+        return Response({"detail": "Investigation not found."}, status=404)
+    if session.status == LearningInvestigation.Status.ACTIVE:
+        session.status = LearningInvestigation.Status.COMPLETED
+        session.save(update_fields=["status", "updated_at"])
+    return Response(investigation_payload(session))
 
 
 def concepts_payload(learner):

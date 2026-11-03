@@ -1,11 +1,12 @@
 import json
 
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 from apps.accounts.models import User
 from apps.assessments.models import Answer, Assessment, Attempt
-from apps.learning.models import AppPreferences, ConceptMastery, LearningEvent, StudyTask
+from apps.learning.algorithms import QUESTIONS, diagnostic_status, expected_information_gain, factorisation_experiment, initial_beliefs, posterior_update, select_question
+from apps.learning.models import AppPreferences, ConceptMastery, InvestigationEvent, LearningEvent, LearningInvestigation, StudyTask
 from apps.recovery.models import RecoveryPlan
 
 
@@ -152,3 +153,67 @@ class PathloomApiTests(TestCase):
         self.assertEqual(preferences.json()["goal_minutes_per_week"], 120)
         self.assertEqual(preferences.json()["focus_subjects"], ["science"])
         self.assertTrue(AppPreferences.objects.filter(learner__username="sahana", goal_minutes_per_week=120).exists())
+
+    def test_concept_surgery_is_symbolically_validated_and_persisted(self):
+        self.login("sahana")
+        created = self.client.post("/api/v1/investigations/", {"type": "CONCEPT_SURGERY", "concept_id": "MATH-ALG-07"}, content_type="application/json")
+        self.assertEqual(created.status_code, 201)
+        session_id = created.json()["id"]
+        experiment = self.client.post(f"/api/v1/investigations/{session_id}/surgery/", {"factor_a": 3, "factor_b": 4, "event_key": "surgery-test-1"}, content_type="application/json")
+        self.assertEqual(experiment.status_code, 200)
+        self.assertEqual(experiment.json()["experiment"]["sum"], 7)
+        self.assertEqual(experiment.json()["experiment"]["product"], 12)
+        self.assertFalse(experiment.json()["experiment"]["matches_target"])
+        repeated = self.client.post(f"/api/v1/investigations/{session_id}/surgery/", {"factor_a": 3, "factor_b": 4, "event_key": "surgery-test-1"}, content_type="application/json")
+        self.assertEqual(repeated.status_code, 200)
+        self.assertEqual(InvestigationEvent.objects.filter(session_id=session_id).count(), 1)
+
+    def test_diagnostic_duel_updates_beliefs_and_keeps_trace(self):
+        self.login("sahana")
+        created = self.client.post("/api/v1/investigations/", {"type": "DIAGNOSTIC_DUEL", "concept_id": "MATH-ALG-07"}, content_type="application/json")
+        self.assertEqual(created.status_code, 201)
+        session_id = created.json()["id"]
+        question = created.json()["state"]["current_question"]
+        answer = self.client.post(f"/api/v1/investigations/{session_id}/diagnostic-answer/", {"question_id": question["id"], "answer_id": question["options"][0]["id"], "event_key": "duel-test-1"}, content_type="application/json")
+        self.assertEqual(answer.status_code, 200)
+        self.assertEqual(len(answer.json()["session"]["state"]["trace"]), 1)
+        beliefs = answer.json()["session"]["state"]["beliefs"]
+        self.assertAlmostEqual(sum(beliefs.values()), 1.0, places=4)
+        repeated = self.client.post(f"/api/v1/investigations/{session_id}/diagnostic-answer/", {"question_id": question["id"], "answer_id": question["options"][0]["id"], "event_key": "duel-test-1"}, content_type="application/json")
+        self.assertEqual(repeated.status_code, 200)
+        self.assertEqual(InvestigationEvent.objects.filter(session_id=session_id).count(), 1)
+
+    def test_student_cannot_read_another_students_investigation(self):
+        self.login("sahana")
+        created = self.client.post("/api/v1/investigations/", {"type": "CONCEPT_SURGERY", "concept_id": "MATH-ALG-07"}, content_type="application/json")
+        session_id = created.json()["id"]
+        self.login("nischal")
+        response = self.client.get(f"/api/v1/investigations/{session_id}/")
+        self.assertEqual(response.status_code, 404)
+
+
+class DiagnosticAlgorithmTests(SimpleTestCase):
+    def test_factorisation_engine_expands_and_finds_roots(self):
+        result = factorisation_experiment(2, 3)
+        self.assertTrue(result["matches_target"])
+        self.assertEqual(result["sum"], 5)
+        self.assertEqual(result["product"], 6)
+        self.assertEqual(set(result["roots"]), {"-3", "-2"})
+
+    def test_information_gain_is_computable_and_question_selection_is_adaptive(self):
+        beliefs = initial_beliefs()
+        question, score = select_question(beliefs, [])
+        self.assertIsNotNone(question)
+        self.assertGreater(score, 0)
+        self.assertAlmostEqual(score, expected_information_gain(beliefs, question), places=5)
+        updated = posterior_update(beliefs, question, question.options[0]["id"])
+        self.assertAlmostEqual(sum(updated.values()), 1.0, places=5)
+        self.assertNotEqual(updated, beliefs)
+        self.assertIn(diagnostic_status(updated, 1), {"INVESTIGATING", "SUFFICIENT"})
+
+    def test_question_selection_excludes_asked_questions(self):
+        beliefs = initial_beliefs()
+        first, _ = select_question(beliefs, [])
+        second, _ = select_question(beliefs, [first.id])
+        self.assertIsNotNone(second)
+        self.assertNotEqual(first.id, second.id)

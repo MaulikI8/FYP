@@ -11,11 +11,13 @@ Branch: `redesign/premium-learning-experiences`
 - Added teacher classes, class evidence, concept opportunities, scoped intervention creation, and learner evidence screens.
 - Added honest notification/search surfaces, persisted learner preferences, a restricted guardian summary, and explicit deferred screens.
 - Added fresh factorisation assessment data and server-side response normalization for supported numeric/text formats.
+- Added the next research milestone: owner-scoped Concept Surgery sessions with SymPy-backed expansion/root validation, and Bayesian Diagnostic Duel sessions with competing hypotheses, entropy/information-gain selection, posterior traces, and explicit uncertainty.
 - Fixed recovery ownership, teacher subject scope, guardian exposure, completion idempotency, and class aggregate sample-size handling.
 
 ## Verified
 
 - `backend`: `manage.py check`, `makemigrations --check --dry-run`, and 15 Django tests pass.
+- `backend`: the investigation milestone expands coverage to 21 Django tests, including symbolic validation, Bayesian updates, adaptive question selection, persistence and ownership.
 - `frontend`: `npm run lint`, `npm run test`, and `npm run build` pass.
 - Direct Django client smoke checks pass for student, teacher, coordinator, and guardian read models; the fresh assessment returns `q-math-07` and excludes the original factorisation item.
 
@@ -24,6 +26,7 @@ Branch: `redesign/premium-learning-experiences`
 - Browser pixel screenshots and keyboard walkthroughs were not run because browser/display tooling is unavailable in this session.
 - Frontend automated coverage is still narrow; the primary persistence and permission regressions are covered in Django tests.
 - Mastery, recommendations, prerequisite links, and coach guidance remain deterministic research-prototype rules rather than validated ML.
+- Diagnostic Duel likelihoods are authored assumptions, not learned/calibrated probabilities; Concept Surgery currently supports the authored monic quadratic interaction.
 - Study-plan polish, achievements, exam readiness, reports, and cohort comparison remain explicitly deferred.
 
 ## Next concrete step

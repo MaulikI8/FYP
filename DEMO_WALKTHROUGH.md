@@ -20,6 +20,10 @@ Open **My knowledge** at `/student/my-knowledge`. Select the factorisation node,
 - the curated link to multiplying binomials;
 - the warning that a heuristic is a practice guide, not a diagnosis.
 
+Open **Investigation lab** from the learner shell. In **Concept Surgery**, change `(x + 2)(x + 3)` to `(x + 3)(x + 4)`, make a prediction, and reveal the server-validated `x² + 7x + 12` result. The saved session contains the factors, coefficient relationship and roots.
+
+Then open **Diagnostic Duel**. Answer one of the adaptive questions and point out the before/after belief bars, authored likelihood boundary, and information-gain label. The next question is selected from the remaining bank rather than displayed in a fixed quiz order.
+
 ## 2:00–3:00 — recovery then reassessment
 
 Open `/student/recovery`, choose the active factorisation plan, and complete the Understand and Explore stages. The Factorisation Lab accepts keyboard/button selection or drag/drop, gives product/sum-specific feedback, and saves a lab event. Choose **Take fresh practice**, complete the fresh transfer assessment, and submit. Django grades the answers; the results page shows the explanations and returns to the concept evidence.

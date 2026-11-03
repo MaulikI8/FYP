@@ -11,6 +11,7 @@ import { ConceptEvidencePage, KnowledgeMapPage } from "../features/knowledge/Kno
 import { RecoveryHubPage, RecoveryJourneyPage } from "../features/recovery/RecoveryPages";
 import { AssessmentPlayerPage, AssessmentResultsPage } from "../features/assessments/AssessmentPages";
 import { ProgressPage } from "../features/progress/ProgressPage";
+import { ConceptSurgeryPage, DiagnosticDuelPage } from "../features/investigations/InvestigationPages";
 import { TeacherHomePage, TeacherClassesPage, ClassInsightsPage, TeacherConceptInsightsPage, TeacherInterventionsPage, TeacherStudentPage } from "../features/teacher/TeacherPages";
 import { CoachPage, ContentMapPage, CoordinatorPage, DeferredPage, GuardianPage, ProfilePage, SettingsPage } from "../features/secondary/SecondaryPages";
 
@@ -36,6 +37,8 @@ export default function AppRouter() {
           <Route path="/student/recovery/:planId" element={<RecoveryJourneyPage />} />
           <Route path="/student/progress" element={<ProgressPage />} />
           <Route path="/student/tutor" element={<CoachPage />} />
+          <Route path="/student/lab/concept-surgery/:conceptId" element={<ConceptSurgeryPage />} />
+          <Route path="/student/lab/diagnostic-duel/:conceptId" element={<DiagnosticDuelPage />} />
           <Route path="/student/profile" element={<ProfilePage />} />
           <Route path="/student/study-plan" element={<DeferredPage title="Study plan polish" reason="The persisted task endpoint remains available. The redesigned core keeps the deeper concept journey ahead of a calendar surface." />} />
           <Route path="/student/exam-readiness" element={<DeferredPage title="Exam readiness" reason="Readiness remains P2 until the assessment bank has enough varied evidence to support an honest coverage view." />} />

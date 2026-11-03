@@ -88,3 +88,38 @@ class AppPreferences(models.Model):
     reduced_motion = models.BooleanField(default=False)
     recommendation_categories = models.JSONField(default=list, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class LearningInvestigation(models.Model):
+    class Types(models.TextChoices):
+        CONCEPT_SURGERY = "CONCEPT_SURGERY", "Concept Surgery"
+        DIAGNOSTIC_DUEL = "DIAGNOSTIC_DUEL", "Diagnostic Duel"
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        COMPLETED = "COMPLETED", "Completed"
+        ABANDONED = "ABANDONED", "Abandoned"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    learner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="learning_investigations")
+    concept = models.ForeignKey(Concept, on_delete=models.PROTECT, related_name="learning_investigations")
+    investigation_type = models.CharField(max_length=30, choices=Types.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    state = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class InvestigationEvent(models.Model):
+    session = models.ForeignKey(LearningInvestigation, on_delete=models.CASCADE, related_name="events")
+    event_type = models.CharField(max_length=40)
+    event_key = models.CharField(max_length=100, blank=True)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [models.UniqueConstraint(fields=["session", "event_key"], name="unique_investigation_event_key")]
