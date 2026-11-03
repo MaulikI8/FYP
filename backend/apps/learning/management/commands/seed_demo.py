@@ -7,7 +7,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.assessments.models import Answer, Assessment, AssessmentQuestion, Attempt, Question, QuestionConcept
 from apps.curriculum.models import Concept, ConceptPrerequisite, Course, Lesson, LessonSection, LearningResource, Subject, Unit
-from apps.learning.models import LearningEvent, StudyTask
+from apps.learning.models import AppPreferences, LearningEvent, StudyTask
 from apps.notifications.models import Notification
 from apps.recovery.models import Intervention, InterventionRecipient, RecoveryPlan, RecoveryStep
 from apps.schools.models import Classroom, Enrollment, GuardianLink, School, TeacherAssignment
@@ -22,7 +22,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         if options["reset"]:
-            for model in [Answer, Attempt, AssessmentQuestion, Assessment, QuestionConcept, Question, RecoveryStep, RecoveryPlan, InterventionRecipient, Intervention, StudyTask, LearningEvent, Notification, ConceptPrerequisite, LessonSection, Lesson, LearningResource, Unit, Course, Concept, Enrollment, TeacherAssignment, GuardianLink, Classroom, User, Subject, School]:
+            for model in [Answer, Attempt, AssessmentQuestion, Assessment, QuestionConcept, Question, RecoveryStep, RecoveryPlan, InterventionRecipient, Intervention, StudyTask, AppPreferences, LearningEvent, Notification, ConceptPrerequisite, LessonSection, Lesson, LearningResource, Unit, Course, Concept, Enrollment, TeacherAssignment, GuardianLink, Classroom, User, Subject, School]:
                 if model is User:
                     model.objects.filter(is_staff=False).delete()
                 else:
@@ -104,6 +104,7 @@ class Command(BaseCommand):
             ("q-math-03", "Which pair solves x² + 5x + 6 = 0?", ["x = -2 or -3", "x = 2 or 3", "x = -1 or -6", "x = 0 or 6"], "x = -2 or -3", "The zero-product rule gives x + 2 = 0 or x + 3 = 0.", ["MATH-ALG-08", "MATH-ALG-07"]),
             ("q-math-04", "What is the common factor of 6x + 9?", ["3", "6", "9", "x"], "3", "Both terms are divisible by 3.", ["MATH-ALG-05"]),
             ("q-math-05", "The roots of x² + 7x + 12 = 0 are", ["-3 and -4", "3 and 4", "-2 and -6", "2 and 6"], "-3 and -4", "(x + 3)(x + 4) = 0.", ["MATH-ALG-08"]),
+            ("q-math-07", "Factorise x² + 7x + 12.", ["(x+3)(x+4)", "(x+2)(x+6)", "(x+1)(x+12)", "(x-3)(x-4)"], "(x+3)(x+4)", "Find two numbers that multiply to 12 and add to 7: 3 and 4.", ["MATH-ALG-07"]),
             ("q-sci-01", "A car travels 120 m in 10 s. What is its speed?", ["12 m/s", "1200 m/s", "0.08 m/s", "110 m/s"], "12 m/s", "Speed is distance divided by time: 120 ÷ 10 = 12 m/s.", ["SCI-PHY-02"]),
             ("q-sci-02", "If voltage is 12 V and resistance is 4 Ω, current is", ["3 A", "48 A", "0.3 A", "8 A"], "3 A", "Using I = V/R, 12 V ÷ 4 Ω = 3 A.", ["SCI-PHY-05"]),
             ("q-sci-03", "Which is a compound?", ["Water", "Oxygen", "Copper", "Helium"], "Water", "Water contains hydrogen and oxygen chemically joined.", ["SCI-CHEM-01"]),
@@ -120,6 +121,10 @@ class Command(BaseCommand):
         assessment.questions.clear()
         for order, key in enumerate(["q-math-01", "q-math-02", "q-math-03", "q-math-04", "q-math-06"], 1):
             AssessmentQuestion.objects.create(assessment=assessment, question=questions[key], order=order)
+        fresh_math, _ = Assessment.objects.update_or_create(id="assessment-math-fresh", defaults={"course": math_course, "title": "Factorisation transfer check", "description": "A fresh set of related questions to check whether the factor-pair idea transfers to a new expression.", "max_attempts": 10})
+        fresh_math.questions.clear()
+        for order, key in enumerate(["q-math-07", "q-math-05", "q-math-04", "q-math-06"], 1):
+            AssessmentQuestion.objects.create(assessment=fresh_math, question=questions[key], order=order)
         science_assessment, _ = Assessment.objects.update_or_create(id="assessment-science-check", defaults={"course": science_course, "title": "Science evidence check", "description": "A compact practice set covering motion, circuits and matter.", "max_attempts": 10})
         science_assessment.questions.clear()
         for order, key in enumerate(["q-sci-01", "q-sci-02", "q-sci-03", "q-sci-04"], 1):
@@ -196,6 +201,8 @@ class Command(BaseCommand):
             Answer.objects.create(attempt=attempt, question=question, response=response, is_correct=correct, confidence="confident" if correct else "unsure")
         timestamp = timezone.now() - timedelta(days=days_ago)
         Attempt.objects.filter(id=attempt.id).update(score=score, total=assessment.questions.count(), submitted_at=timestamp, started_at=timestamp - timedelta(minutes=18))
+        event, _ = LearningEvent.objects.get_or_create(learner=learner, event_type=LearningEvent.Types.ASSESSMENT_SUBMITTED, metadata={"attempt_id": str(attempt.id), "score": score, "total": assessment.questions.count()})
+        event.concepts.set(Concept.objects.filter(questions__assessments=assessment).distinct())
         return Attempt.objects.get(id=attempt.id)
 
     def section_copy(self, lesson_title, section_title):

@@ -1,8 +1,6 @@
-from collections import defaultdict
+from decimal import Decimal, InvalidOperation
 
-from django.db.models import Avg, Count
-
-from apps.assessments.models import Answer
+from apps.assessments.models import Answer, Assessment, Question
 from apps.curriculum.models import Concept
 
 
@@ -29,6 +27,24 @@ def compute_mastery(learner, concept):
     return {"value": value, "evidence_count": total, "uncertainty": uncertainty, "label": mastery_label(value, total)}
 
 
+def response_matches(question, response):
+    """Compare supported formats without exposing answer keys to clients."""
+    submitted = str(response or "").strip()
+    expected = question.correct_answer.strip()
+    if question.question_type == Question.Types.NUMERIC:
+        try:
+            return Decimal(submitted) == Decimal(expected)
+        except (InvalidOperation, ValueError):
+            return False
+    return "".join(submitted.casefold().split()) == "".join(expected.casefold().split())
+
+
+def assessment_for_concept(concept):
+    """Prefer a seeded fresh practice set when one exists for this concept."""
+    assessments = Assessment.objects.filter(questions__concepts=concept).distinct().order_by("id")
+    return assessments.filter(id="assessment-math-fresh").first() or assessments.first()
+
+
 def refresh_mastery(learner, concepts):
     from .models import ConceptMastery
 
@@ -46,6 +62,7 @@ def gap_analysis(learner):
         result = compute_mastery(learner, concept)
         if result["evidence_count"] and result["value"] < 0.65:
             prerequisite = next((link.prerequisite for link in concept.prerequisites.all() if compute_mastery(learner, link.prerequisite)["value"] < 0.65), None)
+            assessment = assessment_for_concept(concept)
             gaps.append({
                 "concept_id": concept.id,
                 "concept": concept.title,
@@ -53,6 +70,8 @@ def gap_analysis(learner):
                 "mastery": result,
                 "prerequisite": {"id": prerequisite.id, "title": prerequisite.title} if prerequisite else None,
                 "reason": "Recent answers suggest this skill needs another worked example.",
+                "recommended_lesson_id": str(concept.lessons.order_by("unit__order", "id").first().id) if concept.lessons.exists() else None,
+                "recommended_assessment_id": assessment.id if assessment else None,
             })
     return sorted(gaps, key=lambda item: (item["mastery"]["value"], -item["mastery"]["evidence_count"]))
 

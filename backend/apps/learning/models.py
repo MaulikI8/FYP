@@ -14,6 +14,7 @@ class LearningEvent(models.Model):
         RECOVERY_STEP = "RECOVERY_STEP", "Recovery step"
         TASK_COMPLETED = "TASK_COMPLETED", "Study task completed"
         NOTE_ADDED = "NOTE_ADDED", "Note added"
+        LAB_INTERACTION = "LAB_INTERACTION", "Interactive lab"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     learner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="learning_events")
@@ -76,3 +77,14 @@ class Bookmark(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["learner", "lesson", "timestamp_seconds"], name="unique_bookmark")]
+
+
+class AppPreferences(models.Model):
+    """Small, learner-owned preferences used to shape the local demo workspace."""
+
+    learner = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="app_preferences")
+    goal_minutes_per_week = models.PositiveSmallIntegerField(default=90)
+    focus_subjects = models.JSONField(default=list, blank=True)
+    reduced_motion = models.BooleanField(default=False)
+    recommendation_categories = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)

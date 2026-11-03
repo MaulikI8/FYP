@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --canvas: #faf9f6;
+  --surface: #ffffff;
+  --surface-warm: #f5f2ed;
+  --ink: #182334;
+  --text: #334155;
+  --muted: #627083;
+  --quiet: #788596;
+  --line: #e7e3de;
+  --line-strong: #d8d3cc;
+  --plum: #5548c7;
+  --plum-hover: #4436b1;
+  --plum-tint: #efedfc;
+  --mint: #168b78;
+  --mint-tint: #e9f5f0;
+  --amber: #b8772d;
+  --amber-tint: #fbf1e3;
+  --coral: #df8d74;
+  --coral-tint: #fdf0eb;
+  --shadow-soft: 0 8px 24px rgba(24, 35, 52, 0.045);
+  --shadow-popover: 0 18px 50px rgba(24, 35, 52, 0.15);
+  --radius-control: 10px;
+  --radius-card: 18px;
+  --radius-editorial: 24px;
+  --sidebar: 250px;
+}

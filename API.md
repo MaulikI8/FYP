@@ -52,7 +52,7 @@ PATCH /api/v1/recovery/steps/<step uuid>/
 {"completed":true}
 ```
 
-Teacher assignment adds `learner_id` and validates that every recipient belongs to an assigned class. The response includes the evidence IDs, origin, status and ordered steps.
+Student recovery creation always targets the authenticated student; a supplied different `learner_id` is rejected. Repeating a completed step is idempotent and does not append another learning event. Teacher assignment adds `learner_id` and validates that every recipient belongs to an assigned class. The response includes the evidence IDs, origin, status and ordered steps.
 
 ## Core read endpoints
 
@@ -71,5 +71,12 @@ Teacher assignment adds `learner_id` and validates that every recipient belongs 
 | Class insight | `GET /teacher/classes/{uuid}/insights/` |
 | Teacher learner evidence | `GET /teacher/students/{id}/evidence/` |
 | Teacher interventions | `GET/POST /teacher/interventions/` |
+| Learning timeline | `GET /timeline/?window=7d\|30d\|all` |
+| Interactive lab event | `POST /practice/lab-events/` |
+| Learner preferences | `GET/PATCH /preferences/` |
+| Notifications | `GET /notifications/`, `PATCH /notifications/{uuid}/` |
+| Authorized search | `GET /search/?q=...` |
 
 Unauthorized access is rejected by DRF authentication/permissions; ownership and assigned-class validation happen inside the views.
+
+`GET /knowledge-map/` returns the exact prerequisite edges used by the React Flow map. `GET /teacher/classes/{uuid}/insights/` reports assessed learner count, response count, correct count and incorrect count separately; unassessed learners are excluded from concept averages.

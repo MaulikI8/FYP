@@ -52,4 +52,4 @@ This is an explainable demo engine. A future research version could replace indi
 
 ## Frontend structure
 
-`App.tsx` contains the compact demo shell and route-level views; `styles.css` defines the responsive visual tokens. React Query handles server state. Local React state is used only for drafts, selected filters, assessment responses and UI visibility. Student and teacher pages use the same Django records, so a submitted reassessment is visible in both places after invalidation/refetch.
+`app/AppRouter.tsx` owns the route manifest and role boundaries. Reusable shell and controls live in `layouts/`, `components/`, and feature folders such as `features/knowledge/`, `features/labs/`, `features/recovery/`, and `features/teacher/`. `styles/tokens.css`, `styles/global.css`, `styles/components.css`, and `styles/features.css` provide the atelier design system. React Query handles server state. Local React state is used only for drafts, selected filters, assessment responses and UI visibility. Student and teacher pages use the same Django records, so a submitted reassessment is visible in both places after invalidation/refetch.
